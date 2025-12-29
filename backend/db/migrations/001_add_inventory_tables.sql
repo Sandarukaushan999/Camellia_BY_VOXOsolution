@@ -1,32 +1,5 @@
-CREATE TABLE IF NOT EXISTS users (
-  id SERIAL PRIMARY KEY,
-  username VARCHAR(50) UNIQUE NOT NULL,
-  password TEXT NOT NULL,
-  role VARCHAR(20) NOT NULL CHECK (role IN ('ADMIN', 'CASHIER'))
-);
-
-CREATE TABLE IF NOT EXISTS products (
-  id SERIAL PRIMARY KEY,
-  name VARCHAR(100) NOT NULL,
-  price NUMERIC(10,2) NOT NULL,
-  category VARCHAR(50),
-  is_active BOOLEAN DEFAULT TRUE
-);
-
-CREATE TABLE IF NOT EXISTS orders (
-  id SERIAL PRIMARY KEY,
-  total NUMERIC(10,2) NOT NULL,
-  payment_method VARCHAR(20) NOT NULL,
-  created_at TIMESTAMP DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS order_items (
-  id SERIAL PRIMARY KEY,
-  order_id INT REFERENCES orders(id) ON DELETE CASCADE,
-  product_id INT REFERENCES products(id),
-  qty INT NOT NULL,
-  price NUMERIC(10,2) NOT NULL
-);
+-- Migration: Add inventory tables and related structures
+-- Run this script to update your database schema
 
 -- Inventory Items table for raw materials and ingredients
 CREATE TABLE IF NOT EXISTS inventory_items (
@@ -34,10 +7,14 @@ CREATE TABLE IF NOT EXISTS inventory_items (
   name VARCHAR(100) NOT NULL,
   quantity NUMERIC(10,3) NOT NULL DEFAULT 0,
   unit VARCHAR(20) NOT NULL DEFAULT 'grams' CHECK (unit IN ('grams', 'kilograms', 'pieces', 'liters', 'ml')),
+  barcode VARCHAR(100) UNIQUE,
   expire_date DATE,
   low_stock_threshold NUMERIC(10,3) DEFAULT 0,
   category VARCHAR(50),
   cost_per_unit NUMERIC(10,2),
+  supplier VARCHAR(100),
+  location VARCHAR(100),
+  notes TEXT,
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
 );
@@ -76,8 +53,8 @@ CREATE INDEX IF NOT EXISTS idx_product_inventory_inventory_item_id ON product_in
 CREATE INDEX IF NOT EXISTS idx_inventory_transactions_item_id ON inventory_transactions(inventory_item_id);
 CREATE INDEX IF NOT EXISTS idx_inventory_transactions_created_at ON inventory_transactions(created_at);
 
-
-
-
-
+-- Add unique constraint to product_inventory to prevent duplicate mappings
+-- Note: Run this manually if the constraint doesn't exist:
+-- ALTER TABLE product_inventory ADD CONSTRAINT unique_product_inventory 
+--   UNIQUE(product_id, inventory_item_id);
 
