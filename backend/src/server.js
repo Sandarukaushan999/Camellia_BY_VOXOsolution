@@ -5,6 +5,7 @@ import authRoutes from "./routes/auth.js";
 import orderRoutes from "./routes/orders.js";
 import adminRoutes from "./routes/admin.js";
 import inventoryRoutes from "./routes/inventory.js";
+import expensesRoutes from "./routes/expenses.js";
 
 dotenv.config();
 
@@ -21,6 +22,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/inventory", inventoryRoutes);
+app.use("/api/expenses", expensesRoutes);
 
 const port = process.env.PORT || 4000;
 app.listen(port, () => {

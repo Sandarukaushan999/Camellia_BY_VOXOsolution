@@ -23,6 +23,7 @@ export default function Dashboard() {
   const [orderBreakdown, setOrderBreakdown] = useState([]);
   const [topItems, setTopItems] = useState([]);
   const [recentOrders, setRecentOrders] = useState([]);
+  const [expenseStats, setExpenseStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [topItemsLimit, setTopItemsLimit] = useState(5);
   const [recentOrdersLimit, setRecentOrdersLimit] = useState(5);
@@ -88,15 +89,19 @@ export default function Dashboard() {
     
     const loadAdditionalData = async () => {
       try {
-        const [breakdownRes, itemsRes, ordersRes] = await Promise.all([
+        const [breakdownRes, itemsRes, ordersRes, expensesRes] = await Promise.all([
           api.get("/admin/dashboard/order-breakdown"),
           api.get("/admin/dashboard/top-items"),
           api.get("/admin/dashboard/recent-orders"),
+          api.get("/expenses/stats/summary").catch(() => ({ data: null })), // Optional, don't fail if expenses table doesn't exist
         ]);
         
         setOrderBreakdown(breakdownRes.data);
         setTopItems(itemsRes.data);
         setRecentOrders(ordersRes.data);
+        if (expensesRes.data) {
+          setExpenseStats(expensesRes.data);
+        }
       } catch (err) {
         console.error("Failed to load additional dashboard data", err);
       }
@@ -337,17 +342,27 @@ export default function Dashboard() {
             <div className="text-sm font-bold text-gray-900 leading-tight">{formatCurrency(stats.netProfit)}</div>
           </div>
 
-          {/* Active Orders */}
-          <div className="bg-white rounded-md shadow-sm hover:shadow-md transition-all duration-300 p-2.5 border-l-2 border-red-500 cursor-pointer group">
+          {/* Expenses (Today) */}
+          <div 
+            onClick={() => navigate("/expenses")}
+            className="bg-white rounded-md shadow-sm hover:shadow-md transition-all duration-300 p-2.5 border-l-2 border-orange-500 cursor-pointer group"
+          >
             <div className="flex items-center justify-between mb-1">
-              <div className="w-6 h-6 bg-red-100 rounded flex items-center justify-center group-hover:bg-red-200 transition-colors">
-                <svg className="w-3 h-3 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              <div className="w-6 h-6 bg-orange-100 rounded flex items-center justify-center group-hover:bg-orange-200 transition-colors">
+                <svg className="w-3 h-3 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
               </div>
             </div>
-            <div className="text-[10px] font-medium text-gray-500 mb-0.5 leading-tight">Active Orders</div>
-            <div className="text-sm font-bold text-gray-900 leading-tight">{stats.activeOrders}</div>
+            <div className="text-[10px] font-medium text-gray-500 mb-0.5 leading-tight">Today's Expenses</div>
+            <div className="text-sm font-bold text-gray-900 leading-tight">
+              {expenseStats ? formatCurrency(expenseStats.today) : "Rs. 0.00"}
+            </div>
+            {expenseStats && expenseStats.thisMonth > 0 && (
+              <div className="text-[9px] text-gray-400 leading-tight mt-0.5">
+                This Month: {formatCurrency(expenseStats.thisMonth)}
+              </div>
+            )}
           </div>
         </div>
 

@@ -9,6 +9,7 @@ import Products from "./pages/Products.jsx";
 import Reports from "./pages/Reports.jsx";
 import Settings from "./pages/Settings.jsx";
 import Inventory from "./pages/Inventory.jsx";
+import Expenses from "./pages/Expenses.jsx";
 import MainLayout from "./layout/MainLayout.jsx";
 
 export default function App() {
@@ -116,6 +117,14 @@ export default function App() {
           element={
             <ProtectedRoute roles={["ADMIN"]}>
               <Inventory />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="expenses"
+          element={
+            <ProtectedRoute roles={["ADMIN"]}>
+              <Expenses />
             </ProtectedRoute>
           }
         />
