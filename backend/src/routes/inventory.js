@@ -350,6 +350,7 @@ router.get("/:id/transactions", auth, authorize("ADMIN"), async (req, res) => {
 router.get("/product/:productId/bom", auth, authorize("ADMIN"), async (req, res) => {
   try {
     const { productId } = req.params;
+
     const { rows } = await pool.query(
       `SELECT 
         pi.id, pi.product_id, pi.inventory_item_id, pi.quantity_required, pi.unit,
@@ -358,11 +359,17 @@ router.get("/product/:productId/bom", auth, authorize("ADMIN"), async (req, res)
        JOIN inventory_items ii ON pi.inventory_item_id = ii.id
        WHERE pi.product_id = $1
        ORDER BY ii.name`,
-      [productId]
+      [productId] // Use productId as-is (can be UUID or INT depending on schema)
     );
     return res.json(rows);
   } catch (err) {
     console.error("Error fetching BOM:", err);
+    if (err.code === '42P01') { // Table doesn't exist
+      return res.status(500).json({ 
+        message: "product_inventory table does not exist. Please run: npm run migrate:product-inventory",
+        error: err.message
+      });
+    }
     return res.status(500).json({ message: "Failed to fetch BOM", error: err.message });
   }
 });
@@ -376,18 +383,45 @@ router.post("/product/:productId/bom", auth, authorize("ADMIN"), async (req, res
     return res.status(400).json({ message: "Inventory item ID and positive quantity required are required" });
   }
 
+  // Validate inventory_item_id is a number (inventory_items always use INT)
+  const inventoryItemIdNum = parseInt(inventory_item_id, 10);
+  if (isNaN(inventoryItemIdNum)) {
+    return res.status(400).json({ 
+      message: "Invalid inventory item ID format. Inventory item ID must be a numeric value.",
+      error: `Expected numeric ID, got: ${inventory_item_id}`
+    });
+  }
+
   try {
+    // Verify product exists (productId can be UUID or INT depending on schema)
+    const productCheck = await pool.query('SELECT id FROM products WHERE id = $1', [productId]);
+    if (productCheck.rows.length === 0) {
+      return res.status(404).json({ message: "Product not found" });
+    }
+
+    // Verify inventory item exists
+    const inventoryCheck = await pool.query('SELECT id FROM inventory_items WHERE id = $1', [inventoryItemIdNum]);
+    if (inventoryCheck.rows.length === 0) {
+      return res.status(404).json({ message: "Inventory item not found" });
+    }
+
     const { rows } = await pool.query(
       `INSERT INTO product_inventory (product_id, inventory_item_id, quantity_required, unit)
        VALUES ($1, $2, $3, $4)
        RETURNING *`,
-      [productId, inventory_item_id, quantity_required, unit || "grams"]
+      [productId, inventoryItemIdNum, quantity_required, unit || "grams"] // productId as-is (UUID or INT)
     );
     return res.status(201).json(rows[0]);
   } catch (err) {
     console.error("Error creating BOM entry:", err);
     if (err.code === "23505") {
       return res.status(400).json({ message: "This inventory item is already mapped to this product" });
+    }
+    if (err.code === '42P01') { // Table doesn't exist
+      return res.status(500).json({ 
+        message: "product_inventory table does not exist. Please run: npm run migrate:product-inventory",
+        error: err.message
+      });
     }
     return res.status(500).json({ message: "Failed to create BOM entry", error: err.message });
   }

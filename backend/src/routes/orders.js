@@ -81,20 +81,25 @@ router.post("/", auth, authorize("ADMIN", "CASHIER"), async (req, res) => {
             [qtyNeeded, bom.inventory_item_id]
           );
 
-          // Log transaction
-          await client.query(
-            `INSERT INTO inventory_transactions 
-             (inventory_item_id, transaction_type, quantity, unit, reference_id, reference_type, notes, created_by)
-             VALUES ($1, 'SALE', $2, $3, $4, 'ORDER', $5, $6)`,
-            [
-              bom.inventory_item_id,
-              qtyNeeded,
-              inventoryUnit,
-              orderId,
-              `Order #${orderId} - Product ID: ${item.product_id}`,
-              req.user?.username || "SYSTEM",
-            ]
-          );
+          // Log transaction (if table exists)
+          try {
+            await client.query(
+              `INSERT INTO inventory_transactions 
+               (inventory_item_id, transaction_type, quantity, unit, reference_id, reference_type, notes, created_by)
+               VALUES ($1, 'SALE', $2, $3, $4, 'ORDER', $5, $6)`,
+              [
+                bom.inventory_item_id,
+                qtyNeeded,
+                inventoryUnit,
+                orderId,
+                `Order #${orderId} - Product ID: ${item.product_id}`,
+                req.user?.username || "SYSTEM",
+              ]
+            );
+          } catch (txErr) {
+            // Transaction table might not exist, that's okay - inventory was still deducted
+            console.warn("Could not log inventory transaction:", txErr.message);
+          }
         }
       }
     }
@@ -111,8 +116,3 @@ router.post("/", auth, authorize("ADMIN", "CASHIER"), async (req, res) => {
 });
 
 export default router;
-
-
-
-
-

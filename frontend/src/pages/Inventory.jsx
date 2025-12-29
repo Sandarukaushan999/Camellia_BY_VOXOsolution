@@ -74,12 +74,19 @@ export default function Inventory() {
 
   const openEditModal = (item) => {
     setEditingItem(item);
+    // Format quantity to remove unnecessary decimals for display in input
+    const qty = parseFloat(item.quantity);
+    const formattedQty = isNaN(qty) ? "" : (item.unit === "grams" || item.unit === "pieces" ? Math.round(qty).toString() : qty.toString());
+    
+    const threshold = parseFloat(item.low_stock_threshold);
+    const formattedThreshold = isNaN(threshold) || threshold === 0 ? "" : (item.unit === "grams" || item.unit === "pieces" ? Math.round(threshold).toString() : threshold.toString());
+    
     setForm({
       name: item.name || "",
-      quantity: item.quantity || "",
+      quantity: formattedQty,
       unit: item.unit || "grams",
       expire_date: item.expire_date ? item.expire_date.split("T")[0] : "",
-      low_stock_threshold: item.low_stock_threshold || "",
+      low_stock_threshold: formattedThreshold,
       category: item.category || "",
       cost_per_unit: item.cost_per_unit || "",
     });
@@ -155,17 +162,34 @@ export default function Inventory() {
     if (isNaN(qty)) return "0";
 
     if (unit === "grams") {
+      // Always convert grams to kg if 1000g or more for display
       if (qty >= 1000) {
-        const kg = (qty / 1000).toFixed(3);
-        return `${kg} kg (${qty.toFixed(2)} g)`;
+        const kg = qty / 1000;
+        // If it's a whole number, show as "1kg", "2kg", etc.
+        if (Math.abs(kg - Math.round(kg)) < 0.0001) {
+          return `${Math.round(kg)}kg`;
+        }
+        // Otherwise show with decimals but remove trailing zeros
+        const kgStr = parseFloat(kg.toFixed(3));
+        return `${kgStr}kg`;
       }
-      return `${qty.toFixed(2)} g`;
+      // For less than 1000g, show as grams (whole numbers only)
+      return `${Math.round(qty)}g`;
     } else if (unit === "kilograms") {
-      const g = qty * 1000;
-      return `${qty.toFixed(3)} kg (${g.toFixed(2)} g)`;
+      // Show kg as whole numbers or clean decimals
+      if (Math.abs(qty - Math.round(qty)) < 0.0001) {
+        return `${Math.round(qty)}kg`;
+      }
+      // Show with decimals but remove trailing zeros
+      const kgStr = parseFloat(qty.toFixed(3));
+      return `${kgStr}kg`;
+    } else if (unit === "pieces") {
+      // For pieces, show as whole numbers only
+      return `${Math.round(qty)} pieces`;
     }
     
-    return `${qty.toFixed(2)} ${unit}`;
+    // For other units (liters, ml) - show as whole numbers
+    return `${Math.round(qty)}${unit}`;
   };
 
   const getStatusBadge = (item) => {
@@ -507,12 +531,29 @@ export default function Inventory() {
                       </label>
                       <input
                         type="number"
-                        step="0.001"
+                        step={form.unit === "pieces" ? "1" : form.unit === "kilograms" ? "0.001" : "1"}
                         value={form.quantity}
-                        onChange={(e) => setForm({ ...form, quantity: e.target.value })}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          // For grams and pieces, only allow whole numbers
+                          if (form.unit === "grams" || form.unit === "pieces") {
+                            const numVal = parseInt(val, 10);
+                            if (!isNaN(numVal) || val === "") {
+                              setForm({ ...form, quantity: val === "" ? "" : numVal.toString() });
+                            }
+                          } else {
+                            setForm({ ...form, quantity: val });
+                          }
+                        }}
+                        placeholder={form.unit === "grams" ? "e.g., 1000 (will display as 1kg)" : form.unit === "pieces" ? "e.g., 10" : "e.g., 1.5"}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         required
                       />
+                      {form.unit === "grams" && form.quantity && parseFloat(form.quantity) >= 1000 && (
+                        <p className="text-xs text-blue-600 mt-1">
+                          💡 {form.quantity}g = {parseFloat(form.quantity) / 1000}kg (will display as {parseFloat(form.quantity) / 1000}kg)
+                        </p>
+                      )}
                     </div>
 
                     <div>
@@ -525,12 +566,15 @@ export default function Inventory() {
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         required
                       >
-                        {UNITS.map((unit) => (
-                          <option key={unit.value} value={unit.value}>
-                            {unit.label}
-                          </option>
-                        ))}
+                        <option value="grams">Grams (g) - Recommended for most items</option>
+                        <option value="kilograms">Kilograms (kg) - For large quantities</option>
+                        <option value="pieces">Pieces - For items like cheese, eggs, etc.</option>
+                        <option value="liters">Liters (L) - For liquids</option>
+                        <option value="ml">Milliliters (mL) - For small liquid quantities</option>
                       </select>
+                      <p className="text-xs text-gray-500 mt-1">
+                        💡 Tip: Use grams for most items (chicken, vegetables, etc.). Use pieces for items like cheese.
+                      </p>
                     </div>
 
                     <div>
@@ -539,10 +583,21 @@ export default function Inventory() {
                       </label>
                       <input
                         type="number"
-                        step="0.001"
+                        step={form.unit === "pieces" ? "1" : form.unit === "kilograms" ? "0.001" : "1"}
                         value={form.low_stock_threshold}
-                        onChange={(e) => setForm({ ...form, low_stock_threshold: e.target.value })}
-                        placeholder="Alert when stock reaches this level"
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          // For grams and pieces, only allow whole numbers
+                          if (form.unit === "grams" || form.unit === "pieces") {
+                            const numVal = parseInt(val, 10);
+                            if (!isNaN(numVal) || val === "") {
+                              setForm({ ...form, low_stock_threshold: val === "" ? "" : numVal.toString() });
+                            }
+                          } else {
+                            setForm({ ...form, low_stock_threshold: val });
+                          }
+                        }}
+                        placeholder={form.unit === "grams" ? "e.g., 200 (for 200g)" : form.unit === "pieces" ? "e.g., 5" : "e.g., 0.5"}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>

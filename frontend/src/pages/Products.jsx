@@ -36,10 +36,78 @@ export default function Products() {
     is_active: true,
   });
   const [message, setMessage] = useState("");
+  const [showInventoryModal, setShowInventoryModal] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [inventoryItems, setInventoryItems] = useState([]);
+  const [bomItems, setBomItems] = useState([]);
+  const [newBomItem, setNewBomItem] = useState({ inventory_item_id: "", quantity_required: "", unit: "grams" });
 
   useEffect(() => {
     loadProducts();
   }, []);
+
+  const loadInventoryItems = async () => {
+    try {
+      const { data } = await api.get("/inventory");
+      setInventoryItems(data);
+    } catch (err) {
+      console.error("Failed to load inventory items", err);
+    }
+  };
+
+  const loadBOM = async (productId) => {
+    try {
+      const { data } = await api.get(`/inventory/product/${productId}/bom`);
+      setBomItems(data);
+    } catch (err) {
+      console.error("Failed to load BOM", err);
+      setBomItems([]);
+    }
+  };
+
+  const openInventoryModal = async (product) => {
+    setSelectedProduct(product);
+    await loadInventoryItems();
+    // Use product.id as-is (can be UUID or numeric depending on database schema)
+    await loadBOM(product.id);
+    setShowInventoryModal(true);
+  };
+
+  const addBOMItem = async () => {
+    if (!newBomItem.inventory_item_id || !newBomItem.quantity_required) {
+      setMessage("Please select an inventory item and enter quantity");
+      return;
+    }
+
+    if (!selectedProduct) return;
+
+    // Use product.id as-is (can be UUID or numeric)
+    try {
+      await api.post(`/inventory/product/${selectedProduct.id}/bom`, newBomItem);
+      setMessage("Inventory item added to product");
+      setNewBomItem({ inventory_item_id: "", quantity_required: "", unit: "grams" });
+      await loadBOM(selectedProduct.id);
+      setTimeout(() => setMessage(""), 2000);
+    } catch (err) {
+      setMessage(err.response?.data?.message || "Failed to add inventory item");
+      setTimeout(() => setMessage(""), 3000);
+    }
+  };
+
+  const deleteBOMItem = async (bomId) => {
+    if (!window.confirm("Remove this inventory item from product?")) return;
+    if (!selectedProduct) return;
+
+    try {
+      await api.delete(`/inventory/bom/${bomId}`);
+      setMessage("Inventory item removed");
+      await loadBOM(selectedProduct.id);
+      setTimeout(() => setMessage(""), 2000);
+    } catch (err) {
+      setMessage("Failed to remove inventory item");
+      setTimeout(() => setMessage(""), 3000);
+    }
+  };
 
   const markProductsUpdated = () => {
     try {
@@ -328,6 +396,20 @@ export default function Products() {
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <button
+                            onClick={() => openInventoryModal(product)}
+                            className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                            title="Manage Inventory"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
+                              />
+                            </svg>
+                          </button>
+                          <button
                             onClick={() => openEditModal(product)}
                             className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                             title="Edit"
@@ -544,6 +626,137 @@ export default function Products() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Inventory Management Modal */}
+      {showInventoryModal && selectedProduct && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">Manage Inventory for {selectedProduct.name}</h2>
+                  <p className="text-sm text-gray-600 mt-1">Link raw materials/ingredients to this product</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowInventoryModal(false);
+                    setSelectedProduct(null);
+                    setBomItems([]);
+                  }}
+                  className="text-gray-400 hover:text-gray-600 text-2xl"
+                >
+                  ×
+                </button>
+              </div>
+
+              {/* Add New Inventory Item */}
+              <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Add Inventory Item</h3>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Inventory Item</label>
+                    <select
+                      value={newBomItem.inventory_item_id}
+                      onChange={(e) => setNewBomItem({ ...newBomItem, inventory_item_id: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Select inventory item...</option>
+                      {inventoryItems.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.name} ({item.quantity} {item.unit})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Quantity Required</label>
+                    <input
+                      type="number"
+                      step="0.001"
+                      value={newBomItem.quantity_required}
+                      onChange={(e) => setNewBomItem({ ...newBomItem, quantity_required: e.target.value })}
+                      placeholder="e.g., 200"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Unit</label>
+                    <select
+                      value={newBomItem.unit}
+                      onChange={(e) => setNewBomItem({ ...newBomItem, unit: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="grams">Grams (g)</option>
+                      <option value="kilograms">Kilograms (kg)</option>
+                      <option value="pieces">Pieces</option>
+                      <option value="liters">Liters (L)</option>
+                      <option value="ml">Milliliters (mL)</option>
+                    </select>
+                  </div>
+                </div>
+                <button
+                  onClick={addBOMItem}
+                  className="mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+                >
+                  Add to Product
+                </button>
+              </div>
+
+              {/* Current BOM Items */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Current Inventory Items</h3>
+                {bomItems.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <p>No inventory items linked to this product yet.</p>
+                    <p className="text-sm mt-2">Add items above to link inventory to this product.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {bomItems.map((bom) => (
+                      <div
+                        key={bom.id}
+                        className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg"
+                      >
+                        <div className="flex-1">
+                          <div className="font-medium text-gray-900">{bom.inventory_item_name}</div>
+                          <div className="text-sm text-gray-600">
+                            {bom.quantity_required} {bom.unit} per product
+                            {bom.current_stock !== undefined && (
+                              <span className="ml-2 text-gray-500">
+                                (Stock: {parseFloat(bom.current_stock).toFixed(2)} {bom.inventory_unit})
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => deleteBOMItem(bom.id)}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Remove"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                            />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-6 pt-4 border-t border-gray-200">
+                <p className="text-sm text-gray-600">
+                  <strong>Note:</strong> When this product is sold in POS, the linked inventory items will automatically be deducted from stock.
+                </p>
+              </div>
             </div>
           </div>
         </div>
