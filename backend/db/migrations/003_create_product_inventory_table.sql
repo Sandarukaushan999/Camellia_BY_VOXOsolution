@@ -27,3 +27,4 @@ CREATE TABLE product_inventory (
 CREATE INDEX idx_product_inventory_product_id ON product_inventory(product_id);
 CREATE INDEX idx_product_inventory_inventory_item_id ON product_inventory(inventory_item_id);
 
+

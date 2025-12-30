@@ -65,3 +65,4 @@ The system will automatically:
 - Track inventory when orders are placed (if BOM is configured)
 
 
+

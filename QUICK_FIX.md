@@ -37,3 +37,4 @@ If the npm script doesn't work, you can run the SQL file manually:
 1. Connect to your PostgreSQL database
 2. Run the SQL commands from: `backend/db/migrations/002_add_missing_inventory_columns.sql`
 
+
