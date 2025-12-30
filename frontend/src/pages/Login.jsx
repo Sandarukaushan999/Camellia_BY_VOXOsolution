@@ -27,7 +27,7 @@ export default function Login() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-4">
       <div className="w-full max-w-md">
-        <div className="bg-white rounded-xl shadow-xl p-8 border border-gray-200">
+        <div className="bg-white rounded-xl shadow-xl p-6 md:p-8 border border-gray-200">
           <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">Login</h2>
           <form onSubmit={handleSubmit} className="space-y-4">
             <input

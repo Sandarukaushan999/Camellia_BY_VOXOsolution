@@ -10,7 +10,8 @@
     "seed:admin": "node scripts/seed-admin.js",
     "migrate:inventory": "node scripts/run-migration.js",
     "migrate:product-inventory": "node scripts/create-product-inventory-table.js",
-    "migrate:expenses": "node scripts/run-expenses-migration.js"
+    "migrate:expenses": "node scripts/run-expenses-migration.js",
+    "migrate:order-tracking": "node scripts/run-order-tracking-migration.js"
   },
   "dependencies": {
     "bcrypt": "^5.1.0",

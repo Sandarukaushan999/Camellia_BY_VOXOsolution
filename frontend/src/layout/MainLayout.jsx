@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../state/AuthContext.jsx";
 import logo from "../assests/Clogo.jpeg";
@@ -21,7 +21,7 @@ const menuIcons = {
   ),
   "Inventory": (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4m0 0V7m0 10l8-4m-8-6l8-4" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4m0 0V7m0 10l8-4m-8-6l8-4m-8 6l8-4" />
     </svg>
   ),
   Reports: (
@@ -45,6 +45,7 @@ const menuIcons = {
 export default function MainLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const links =
     user?.role === "ADMIN"
@@ -60,23 +61,44 @@ export default function MainLayout() {
       : [{ to: "/pos", label: "POS Billing" }];
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      {/* Sidebar */}
-      <aside className="w-64 bg-gradient-to-b from-gray-900 to-gray-800 text-white flex flex-col shadow-xl">
+    <div className="flex h-screen bg-gray-50 overflow-hidden">
+      {/* Mobile Menu Overlay */}
+      {mobileMenuOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+
+      {/* Sidebar - Desktop & Mobile */}
+      <aside
+        className={`fixed lg:static inset-y-0 left-0 z-50 w-64 bg-gradient-to-b from-gray-900 to-gray-800 text-white flex flex-col shadow-xl transform transition-transform duration-300 ease-in-out ${
+          mobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+        }`}
+      >
         {/* Logo/Brand */}
-        <div className="p-6 border-b border-gray-700">
+        <div className="p-4 lg:p-6 border-b border-gray-700">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 border-2 border-gray-600 shadow-md">
-              <img 
-                src={logo} 
-                alt="Camellia POS Logo" 
+            <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-lg overflow-hidden flex-shrink-0 border-2 border-gray-600 shadow-md">
+              <img
+                src={logo}
+                alt="Camellia POS Logo"
                 className="w-full h-full object-cover"
               />
             </div>
             <div className="flex-1 min-w-0">
-              <h1 className="text-xl font-bold text-white">Camellia POS</h1>
-              <p className="text-xs text-gray-400">Café & Restaurant</p>
+              <h1 className="text-lg lg:text-xl font-bold text-white">Camellia POS</h1>
+              <p className="text-xs text-gray-400 hidden sm:block">Café & Restaurant</p>
             </div>
+            {/* Close button for mobile */}
+            <button
+              onClick={() => setMobileMenuOpen(false)}
+              className="lg:hidden text-gray-400 hover:text-white p-2"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
         </div>
 
@@ -86,6 +108,7 @@ export default function MainLayout() {
             <NavLink
               key={link.to}
               to={link.to}
+              onClick={() => setMobileMenuOpen(false)}
               className={({ isActive }) =>
                 `flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
                   isActive
@@ -104,7 +127,7 @@ export default function MainLayout() {
         <div className="p-4 border-t border-gray-700">
           <div className="bg-gray-800 rounded-lg p-3 mb-3">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center font-bold">
+              <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center font-bold flex-shrink-0">
                 {user?.username?.charAt(0).toUpperCase() || "U"}
               </div>
               <div className="flex-1 min-w-0">
@@ -125,17 +148,27 @@ export default function MainLayout() {
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
             </svg>
-            Logout
+            <span className="hidden sm:inline">Logout</span>
           </button>
         </div>
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col overflow-hidden">
+      <main className="flex-1 flex flex-col overflow-hidden lg:ml-0">
         {/* Topbar */}
-        <div className="flex justify-between items-center px-5 py-3 bg-white border-b border-gray-200 shadow-sm">
-          <div className="font-semibold text-gray-800">{user?.role}</div>
-          <div className="flex-1 text-center text-sm font-medium text-gray-700">
+        <div className="flex justify-between items-center px-4 lg:px-5 py-3 bg-white border-b border-gray-200 shadow-sm">
+          {/* Mobile Menu Button */}
+          <button
+            onClick={() => setMobileMenuOpen(true)}
+            className="lg:hidden text-gray-600 hover:text-gray-900 p-2 -ml-2"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+
+          <div className="font-semibold text-gray-800 text-sm lg:text-base">{user?.role}</div>
+          <div className="flex-1 text-center text-xs lg:text-sm font-medium text-gray-700 hidden sm:block">
             {new Date().toLocaleDateString("en-US", {
               weekday: "long",
               month: "long",
@@ -143,7 +176,13 @@ export default function MainLayout() {
               year: "numeric",
             })}
           </div>
-          <div className="w-24"></div>
+          <div className="text-xs lg:text-sm font-medium text-gray-700 sm:hidden">
+            {new Date().toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+            })}
+          </div>
+          <div className="w-12 lg:w-24"></div>
         </div>
 
         {/* Page Content */}
@@ -152,20 +191,20 @@ export default function MainLayout() {
         </div>
 
         {/* Footer - Copyright */}
-        <footer className="bg-white border-t border-gray-200 px-5 py-3">
+        <footer className="bg-white border-t border-gray-200 px-4 lg:px-5 py-2 lg:py-3">
           <div className="flex flex-col md:flex-row justify-between items-center gap-2 text-xs text-gray-600">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 lg:gap-4 flex-wrap justify-center md:justify-start">
               <span>© {new Date().getFullYear()} VOXOsolution</span>
               <span className="hidden md:inline">•</span>
-              <a href="mailto:voxosolution@gmail.com" className="hover:text-blue-600 transition-colors">
+              <a href="mailto:voxosolution@gmail.com" className="hover:text-blue-600 transition-colors text-xs">
                 voxosolution@gmail.com
               </a>
               <span className="hidden md:inline">•</span>
-              <a href="https://wa.me/94710901871" target="_blank" rel="noopener noreferrer" className="hover:text-blue-600 transition-colors">
+              <a href="https://wa.me/94710901871" target="_blank" rel="noopener noreferrer" className="hover:text-blue-600 transition-colors text-xs">
                 0710901871
               </a>
             </div>
-            <div className="text-gray-500">
+            <div className="text-gray-500 text-xs">
               Powered by VOXOsolution
             </div>
           </div>

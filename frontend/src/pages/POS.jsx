@@ -358,6 +358,7 @@ export default function POS() {
       const payload = {
         total: totals.total,
         payment_method: method,
+        order_type: orderType,
         items: cart.map((item) => ({
           product_id: item.id,
           qty: item.qty,
@@ -437,14 +438,14 @@ export default function POS() {
   return (
     <div className="h-screen flex flex-col bg-gray-50">
       {/* Header - Order Type Selector */}
-      <div className="bg-white border-b border-gray-200 px-4 py-3">
-        <div className="flex items-center gap-3">
-              <div className={`flex gap-2 flex-1 ${systemPrefs.touchMode ? "space-x-2" : ""}`}>
+      <div className="bg-white border-b border-gray-200 px-3 md:px-4 py-2 md:py-3">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
+          <div className={`flex gap-2 flex-1 ${systemPrefs.touchMode ? "space-x-2" : ""}`}>
             {["DINE-IN", "TAKEAWAY", "DELIVERY"].map((type) => (
-                <button
+              <button
                 key={type}
                 onClick={() => setOrderType(type)}
-                  className={`px-4 ${systemPrefs.touchMode ? "py-3" : "py-2"} rounded-lg font-semibold text-sm transition-all ${
+                className={`flex-1 sm:flex-none px-3 md:px-4 ${systemPrefs.touchMode ? "py-3" : "py-2"} rounded-lg font-semibold text-xs sm:text-sm transition-all ${
                   orderType === type
                     ? "bg-blue-600 text-white shadow-md"
                     : "bg-gray-100 text-gray-700 hover:bg-gray-200"
@@ -460,7 +461,7 @@ export default function POS() {
               placeholder="Table #"
               value={tableNumber}
               onChange={(e) => setTableNumber(e.target.value)}
-              className="w-24 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full sm:w-24 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           )}
           {orderType === "DELIVERY" && (
@@ -469,19 +470,19 @@ export default function POS() {
               placeholder="Customer Name"
               value={customerName}
               onChange={(e) => setCustomerName(e.target.value)}
-              className="w-32 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full sm:w-32 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           )}
         </div>
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
         {/* Left Side - Product Selection */}
-        <div className="flex-1 flex flex-col bg-white border-r border-gray-200">
+        <div className="flex-1 flex flex-col bg-white border-r border-gray-200 lg:max-w-[60%]">
           {/* Category Bar - Enhanced */}
-          <div className="bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-300 px-4 py-3 overflow-x-auto shadow-sm">
-            <div className="flex gap-3 min-w-max">
+          <div className="bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-300 px-3 md:px-4 py-2 md:py-3 overflow-x-auto shadow-sm">
+            <div className="flex gap-2 md:gap-3 min-w-max">
               {categories.map((cat) => {
                 const icon = CATEGORY_ICONS[cat] || "📦";
                 const isActive = selectedCategory === cat;
@@ -489,13 +490,13 @@ export default function POS() {
                   <button
                     key={cat}
                     onClick={() => setSelectedCategory(cat)}
-                    className={`flex flex-col items-center justify-center gap-1.5 px-5 py-3 rounded-xl font-semibold whitespace-nowrap transition-all duration-200 min-w-[90px] ${
+                    className={`flex flex-col items-center justify-center gap-1 md:gap-1.5 px-3 md:px-5 py-2 md:py-3 rounded-xl font-semibold whitespace-nowrap transition-all duration-200 min-w-[70px] md:min-w-[90px] ${
                       isActive
                         ? "bg-blue-600 text-white shadow-lg shadow-blue-500/50 transform scale-105"
                         : "bg-white text-gray-700 hover:bg-blue-50 hover:border-blue-200 border-2 border-transparent"
                     }`}
                   >
-                    <span className="text-3xl leading-none">{icon}</span>
+                    <span className="text-2xl md:text-3xl leading-none">{icon}</span>
                     <span className="text-sm leading-tight">{cat}</span>
                   </button>
                 );
@@ -505,7 +506,7 @@ export default function POS() {
 
           {/* Product Grid */}
           <div className="flex-1 overflow-y-auto p-4">
-            <div className={`grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 ${systemPrefs.touchMode ? "gap-4" : ""}`}>
+            <div className={`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3 ${systemPrefs.touchMode ? "gap-3 sm:gap-4" : ""} p-2 md:p-4`}>
               {filteredProducts.map((product) => (
                 <div
                   key={product.id}
@@ -538,7 +539,7 @@ export default function POS() {
         </div>
 
         {/* Right Side - Bill Panel */}
-        <div className="w-96 bg-white flex flex-col">
+        <div className="w-full lg:w-96 bg-white flex flex-col order-last lg:order-none">
           {/* Bill Header */}
           <div className="bg-blue-600 text-white px-4 py-3 border-b border-blue-700">
             <div className="font-bold text-lg">Current Bill</div>
@@ -621,24 +622,24 @@ export default function POS() {
                 )}
               </div>
 
-              <div className="flex gap-2 pt-1">
+              <div className="grid grid-cols-3 gap-2 pt-1">
                 <button
                   onClick={() => processPayment("CASH")}
-                  className="flex-1 py-3 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 transition-colors shadow-md text-sm"
+                  className="py-2.5 md:py-3 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 transition-colors shadow-md text-xs md:text-sm"
                 >
-                  💵 CASH
+                  <span className="hidden sm:inline">💵 </span>CASH
                 </button>
                 <button
                   onClick={() => processPayment("CARD")}
-                  className="flex-1 py-3 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition-colors shadow-md text-sm"
+                  className="py-2.5 md:py-3 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition-colors shadow-md text-xs md:text-sm"
                 >
-                  💳 CARD
+                  <span className="hidden sm:inline">💳 </span>CARD
                 </button>
                 <button
                   onClick={() => processPayment("QR")}
-                  className="flex-1 py-3 bg-purple-600 text-white rounded-lg font-bold hover:bg-purple-700 transition-colors shadow-md text-sm"
+                  className="py-2.5 md:py-3 bg-purple-600 text-white rounded-lg font-bold hover:bg-purple-700 transition-colors shadow-md text-xs md:text-sm"
                 >
-                  📱 QR
+                  <span className="hidden sm:inline">📱 </span>QR
                 </button>
               </div>
               <button
@@ -654,8 +655,8 @@ export default function POS() {
 
       {/* Payment Modal */}
       {showPaymentModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-auto max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-gray-900">Payment</h2>

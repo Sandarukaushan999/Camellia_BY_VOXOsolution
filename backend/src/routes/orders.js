@@ -7,7 +7,7 @@ const router = express.Router();
 
 // POS order creation (both ADMIN and CASHIER)
 router.post("/", auth, authorize("ADMIN", "CASHIER"), async (req, res) => {
-  const { total, payment_method: paymentMethod, items = [] } = req.body;
+  const { total, payment_method: paymentMethod, order_type: orderType = "DINE-IN", items = [] } = req.body;
   if (!total || !paymentMethod || !Array.isArray(items) || items.length === 0) {
     return res
       .status(400)
@@ -17,9 +17,10 @@ router.post("/", auth, authorize("ADMIN", "CASHIER"), async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+    const username = req.user?.username || "SYSTEM";
     const orderResult = await client.query(
-      "INSERT INTO orders (total, payment_method) VALUES ($1, $2) RETURNING id",
-      [total, paymentMethod]
+      "INSERT INTO orders (total, payment_method, order_type, created_by) VALUES ($1, $2, $3, $4) RETURNING id",
+      [total, paymentMethod, orderType, username]
     );
     const orderId = orderResult.rows[0].id;
 

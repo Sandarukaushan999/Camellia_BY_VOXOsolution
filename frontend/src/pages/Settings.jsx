@@ -184,7 +184,7 @@ export default function Settings() {
   const example = calculateExample();
 
   return (
-    <div className="p-4 md:p-6 bg-gray-50 min-h-screen">
+    <div className="p-3 md:p-4 lg:p-6 bg-gray-50 min-h-screen">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="mb-6">
@@ -192,7 +192,7 @@ export default function Settings() {
           <p className="text-sm text-gray-600 mt-1">Configure your POS system</p>
         </div>
 
-        <div className="flex flex-col lg:flex-row gap-6">
+        <div className="flex flex-col lg:flex-row gap-4 md:gap-6">
           {/* Sidebar - Section Selector */}
           <div className="lg:w-64 flex-shrink-0">
             <div className="bg-white rounded-xl shadow-md border border-gray-200 p-2">
@@ -758,8 +758,8 @@ export default function Settings() {
         </div>
 
         {/* Success/Error Message */}
-        {message && (
-          <div className="fixed bottom-4 right-4 bg-blue-600 text-white px-6 py-3 rounded-lg shadow-xl z-50">
+            {message && (
+          <div className="fixed bottom-4 right-4 left-4 sm:left-auto bg-blue-600 text-white px-4 md:px-6 py-3 rounded-lg shadow-xl z-50 text-sm md:text-base">
             {message}
           </div>
         )}

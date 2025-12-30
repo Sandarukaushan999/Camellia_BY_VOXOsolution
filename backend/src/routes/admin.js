@@ -247,24 +247,37 @@ router.get("/dashboard/recent-orders", auth, authorize("ADMIN"), async (_req, re
   }
 });
 
-// Sales reports with filters
+// Comprehensive Sales Reports with detailed data
 router.get("/reports/sales", auth, authorize("ADMIN"), async (req, res) => {
   try {
-    const { days = 30, orderType, paymentMethod } = req.query;
-    const daysInt = parseInt(days) || 30;
+    const { days = 30, orderType, paymentMethod, startDate, endDate } = req.query;
     
     let query = `
-      SELECT DATE(created_at) as day, SUM(total) as total, COUNT(*) as order_count
+      SELECT 
+        DATE(created_at) as day,
+        SUM(total) as total,
+        COUNT(*) as order_count
       FROM orders 
-      WHERE created_at >= CURRENT_DATE - INTERVAL '${daysInt} days'
+      WHERE 1=1
     `;
     
     const params = [];
     let paramCount = 1;
     
+    // Date filtering
+    if (startDate && endDate) {
+      query += ` AND DATE(created_at) BETWEEN $${paramCount} AND $${paramCount + 1}`;
+      params.push(startDate, endDate);
+      paramCount += 2;
+    } else if (days && !startDate) {
+      const daysInt = parseInt(days) || 30;
+      query += ` AND created_at >= CURRENT_DATE - INTERVAL '${daysInt} days'`;
+    }
+    
     if (orderType && orderType !== "ALL") {
-      // Note: orderType would need to be stored in orders table
-      // For now, we'll just filter by date
+      query += ` AND order_type = $${paramCount}`;
+      params.push(orderType);
+      paramCount++;
     }
     
     if (paymentMethod && paymentMethod !== "ALL") {
@@ -282,7 +295,324 @@ router.get("/reports/sales", auth, authorize("ADMIN"), async (req, res) => {
       orderCount: parseInt(r.order_count || 0),
     })));
   } catch (err) {
+    console.error("Error fetching sales reports:", err);
     return res.status(500).json({ message: "Failed to fetch sales reports" });
+  }
+});
+
+// Detailed Sales Report with all order information
+router.get("/reports/sales/detailed", auth, authorize("ADMIN"), async (req, res) => {
+  try {
+    const { days = 30, orderType, paymentMethod, startDate, endDate } = req.query;
+    
+    let query = `
+      SELECT 
+        o.id,
+        o.total,
+        o.payment_method,
+        o.order_type,
+        o.created_at,
+        o.created_by
+      FROM orders o
+      WHERE 1=1
+    `;
+    
+    const params = [];
+    let paramCount = 1;
+    
+    if (startDate && endDate) {
+      query += ` AND DATE(o.created_at) BETWEEN $${paramCount} AND $${paramCount + 1}`;
+      params.push(startDate, endDate);
+      paramCount += 2;
+    } else if (days && !startDate) {
+      const daysInt = parseInt(days) || 30;
+      query += ` AND o.created_at >= CURRENT_DATE - INTERVAL '${daysInt} days'`;
+    }
+    
+    if (orderType && orderType !== "ALL") {
+      query += ` AND o.order_type = $${paramCount}`;
+      params.push(orderType);
+      paramCount++;
+    }
+    
+    if (paymentMethod && paymentMethod !== "ALL") {
+      query += ` AND o.payment_method = $${paramCount}`;
+      params.push(paymentMethod);
+      paramCount++;
+    }
+    
+    query += ` ORDER BY o.created_at DESC LIMIT 1000`;
+    
+    const { rows } = await pool.query(query, params);
+    return res.json(rows.map(r => ({
+      id: r.id,
+      total: parseFloat(r.total || 0),
+      paymentMethod: r.payment_method,
+      orderType: r.order_type || "DINE-IN",
+      createdAt: r.created_at,
+      createdBy: r.created_by || "SYSTEM",
+    })));
+  } catch (err) {
+    console.error("Error fetching detailed sales:", err);
+    return res.status(500).json({ message: "Failed to fetch detailed sales" });
+  }
+});
+
+// Monthly Sales Summary
+router.get("/reports/sales/monthly", auth, authorize("ADMIN"), async (req, res) => {
+  try {
+    const { year = new Date().getFullYear() } = req.query;
+    
+    const { rows } = await pool.query(
+      `SELECT 
+        DATE_TRUNC('month', created_at) as month,
+        SUM(total) as total,
+        COUNT(*) as order_count
+      FROM orders 
+      WHERE EXTRACT(YEAR FROM created_at) = $1
+      GROUP BY DATE_TRUNC('month', created_at)
+      ORDER BY month DESC`,
+      [year]
+    );
+    
+    return res.json(rows.map(r => ({
+      month: r.month,
+      total: parseFloat(r.total || 0),
+      orderCount: parseInt(r.order_count || 0),
+    })));
+  } catch (err) {
+    console.error("Error fetching monthly sales:", err);
+    return res.status(500).json({ message: "Failed to fetch monthly sales" });
+  }
+});
+
+// Payment Method Reports
+router.get("/reports/payments", auth, authorize("ADMIN"), async (req, res) => {
+  try {
+    const { days = 30, startDate, endDate } = req.query;
+    
+    let query = `
+      SELECT 
+        payment_method,
+        COUNT(*) as count,
+        SUM(total) as total
+      FROM orders
+      WHERE 1=1
+    `;
+    
+    const params = [];
+    let paramCount = 1;
+    
+    if (startDate && endDate) {
+      query += ` AND DATE(created_at) BETWEEN $${paramCount} AND $${paramCount + 1}`;
+      params.push(startDate, endDate);
+      paramCount += 2;
+    } else if (days && !startDate) {
+      const daysInt = parseInt(days) || 30;
+      query += ` AND created_at >= CURRENT_DATE - INTERVAL '${daysInt} days'`;
+    }
+    
+    query += ` GROUP BY payment_method ORDER BY total DESC`;
+    
+    const { rows } = await pool.query(query, params);
+    const totalAmount = rows.reduce((sum, r) => sum + parseFloat(r.total || 0), 0);
+    
+    return res.json({
+      methods: rows.map(r => ({
+        method: r.payment_method,
+        count: parseInt(r.count || 0),
+        total: parseFloat(r.total || 0),
+        percentage: totalAmount > 0 ? ((parseFloat(r.total || 0) / totalAmount) * 100).toFixed(2) : 0,
+      })),
+      totalAmount,
+    });
+  } catch (err) {
+    console.error("Error fetching payment reports:", err);
+    return res.status(500).json({ message: "Failed to fetch payment reports" });
+  }
+});
+
+// Inventory Reports
+router.get("/reports/inventory", auth, authorize("ADMIN"), async (req, res) => {
+  try {
+    const { days = 30, startDate, endDate } = req.query;
+    
+    // Get inventory transactions
+    let query = `
+      SELECT 
+        it.transaction_type,
+        it.quantity,
+        it.unit,
+        it.created_at,
+        it.created_by,
+        it.notes,
+        ii.name as item_name,
+        ii.category
+      FROM inventory_transactions it
+      JOIN inventory_items ii ON it.inventory_item_id = ii.id
+      WHERE 1=1
+    `;
+    
+    const params = [];
+    let paramCount = 1;
+    
+    if (startDate && endDate) {
+      query += ` AND DATE(it.created_at) BETWEEN $${paramCount} AND $${paramCount + 1}`;
+      params.push(startDate, endDate);
+      paramCount += 2;
+    } else if (days && !startDate) {
+      const daysInt = parseInt(days) || 30;
+      query += ` AND it.created_at >= CURRENT_DATE - INTERVAL '${daysInt} days'`;
+    }
+    
+    query += ` ORDER BY it.created_at DESC LIMIT 500`;
+    
+    const { rows } = await pool.query(query, params);
+    
+    // Get current inventory summary
+    const inventorySummary = await pool.query(`
+      SELECT 
+        category,
+        COUNT(*) as item_count,
+        SUM(quantity * COALESCE(cost_per_unit, 0)) as total_value
+      FROM inventory_items
+      GROUP BY category
+      ORDER BY category
+    `);
+    
+    // Get low stock items
+    const lowStock = await pool.query(`
+      SELECT id, name, quantity, unit, low_stock_threshold, category
+      FROM inventory_items
+      WHERE quantity <= low_stock_threshold AND low_stock_threshold > 0
+      ORDER BY (quantity / NULLIF(low_stock_threshold, 0)) ASC
+    `);
+    
+    // Get expired items
+    const expired = await pool.query(`
+      SELECT id, name, quantity, unit, expire_date, category
+      FROM inventory_items
+      WHERE expire_date IS NOT NULL AND expire_date < CURRENT_DATE
+      ORDER BY expire_date ASC
+    `);
+    
+    return res.json({
+      transactions: rows.map(r => ({
+        type: r.transaction_type,
+        quantity: parseFloat(r.quantity || 0),
+        unit: r.unit,
+        createdAt: r.created_at,
+        createdBy: r.created_by || "SYSTEM",
+        itemName: r.item_name,
+        category: r.category,
+        notes: r.notes,
+      })),
+      summary: inventorySummary.rows.map(r => ({
+        category: r.category || "Uncategorized",
+        itemCount: parseInt(r.item_count || 0),
+        totalValue: parseFloat(r.total_value || 0),
+      })),
+      lowStock: lowStock.rows,
+      expired: expired.rows,
+    });
+  } catch (err) {
+    console.error("Error fetching inventory reports:", err);
+    return res.status(500).json({ message: "Failed to fetch inventory reports" });
+  }
+});
+
+// Expenses Reports
+router.get("/reports/expenses", auth, authorize("ADMIN"), async (req, res) => {
+  try {
+    const { days = 30, category, startDate, endDate } = req.query;
+    
+    let query = `
+      SELECT 
+        id,
+        title,
+        description,
+        amount,
+        category,
+        expense_date,
+        payment_method,
+        receipt_number,
+        vendor,
+        created_at,
+        created_by
+      FROM expenses
+      WHERE 1=1
+    `;
+    
+    const params = [];
+    let paramCount = 1;
+    
+    if (startDate && endDate) {
+      query += ` AND expense_date BETWEEN $${paramCount} AND $${paramCount + 1}`;
+      params.push(startDate, endDate);
+      paramCount += 2;
+    } else if (days && !startDate) {
+      const daysInt = parseInt(days) || 30;
+      query += ` AND expense_date >= CURRENT_DATE - INTERVAL '${daysInt} days'`;
+    }
+    
+    if (category) {
+      query += ` AND category = $${paramCount}`;
+      params.push(category);
+      paramCount++;
+    }
+    
+    query += ` ORDER BY expense_date DESC, created_at DESC LIMIT 1000`;
+    
+    const { rows } = await pool.query(query, params);
+    
+    // Get summary by category
+    const categorySummary = await pool.query(`
+      SELECT 
+        category,
+        COUNT(*) as count,
+        SUM(amount) as total
+      FROM expenses
+      WHERE 1=1
+      ${startDate && endDate ? `AND expense_date BETWEEN $1 AND $2` : days && !startDate ? `AND expense_date >= CURRENT_DATE - INTERVAL '${parseInt(days) || 30} days'` : ''}
+      ${category ? `AND category = $${startDate && endDate ? 3 : 1}` : ''}
+      GROUP BY category
+      ORDER BY total DESC
+    `, params);
+    
+    // Get monthly total
+    const monthlyTotal = await pool.query(`
+      SELECT 
+        DATE_TRUNC('month', expense_date) as month,
+        SUM(amount) as total
+      FROM expenses
+      WHERE DATE_TRUNC('month', expense_date) = DATE_TRUNC('month', CURRENT_DATE)
+      GROUP BY DATE_TRUNC('month', expense_date)
+    `);
+    
+    return res.json({
+      expenses: rows.map(r => ({
+        id: r.id,
+        title: r.title,
+        description: r.description,
+        amount: parseFloat(r.amount || 0),
+        category: r.category,
+        expenseDate: r.expense_date,
+        paymentMethod: r.payment_method,
+        receiptNumber: r.receipt_number,
+        vendor: r.vendor,
+        createdAt: r.created_at,
+        createdBy: r.created_by || "SYSTEM",
+      })),
+      byCategory: categorySummary.rows.map(r => ({
+        category: r.category,
+        count: parseInt(r.count || 0),
+        total: parseFloat(r.total || 0),
+      })),
+      monthlyTotal: monthlyTotal.rows.length > 0 ? parseFloat(monthlyTotal.rows[0].total || 0) : 0,
+    });
+  } catch (err) {
+    console.error("Error fetching expenses reports:", err);
+    return res.status(500).json({ message: "Failed to fetch expenses reports" });
   }
 });
 
